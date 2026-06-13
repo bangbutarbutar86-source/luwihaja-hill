@@ -1,0 +1,518 @@
+@extends('layouts/profile')
+
+@php
+    use Carbon\Carbon;
+    use App\Models\Ulasan; // Pastikan Model diload untuk pengecekan di view
+@endphp
+
+@section('content')
+    {{-- CSS Tambahan untuk Star Rating --}}
+    <style>
+        .star-rating {
+            display: flex;
+            flex-direction: row-reverse;
+            justify-content: flex-end;
+            gap: 5px;
+        }
+
+        .star-rating input {
+            display: none;
+        }
+
+        .star-rating label {
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: #ddd;
+            transition: color 0.2s;
+        }
+
+        /* Hover & Checked Logic */
+        .star-rating input:checked ~ label,
+        .star-rating label:hover,
+        .star-rating label:hover ~ label {
+            color: #ffc107; /* Warna Kuning Emas */
+        }
+
+        /* Style untuk upload area */
+        .upload-area {
+            border: 2px dashed #ddd;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+        .upload-area:hover {
+            background-color: #f8f9fa;
+            border-color: #aaa;
+        }
+    </style>
+
+    <section id="account" class="account section">
+
+        <div class="container" data-aos="fade-up" data-aos-delay="100">
+
+            <div class="mobile-menu d-lg-none mb-4">
+                <button class="mobile-menu-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#profileMenu">
+                    <i class="bi bi-grid"></i>
+                    <span>Menu</span>
+                </button>
+            </div>
+
+            <div class="row g-4">
+                @include('components/profile/sidebar')
+                <div class="col-lg-9">
+                    <div class="content-area">
+                        <div class="tab-content">
+                            <div class="tab-pane fade show active" id="settings">
+                                <div class="section-header" data-aos="fade-up">
+                                    <h2>Pengaturan Akun</h2>
+                                </div>
+
+                                <div class="settings-content">
+                                    @if (session('success'))
+                                        <div class="bg-success border border-success text-white px-4 py-3 rounded relative mb-4"
+                                            role="alert">
+                                            <span class="block sm:inline">{{ session('success') }}</span>
+                                        </div>
+                                    @endif
+
+                                    @if (session('error'))
+                                        <div class="bg-danger border border-danger text-white px-4 py-3 rounded relative mb-4"
+                                            role="alert">
+                                            <span class="block sm:inline">{{ session('error') }}</span>
+                                        </div>
+                                    @endif
+
+                                    {{-- Tampilkan validasi error jika ada --}}
+                                    @if ($errors->any())
+                                        <div class="bg-danger border border-danger text-white px-4 py-3 rounded relative mb-4"
+                                            role="alert">
+                                            <strong class="font-bold">Oops! Ada kesalahan:</strong>
+                                            <ul class="mt-2 list-disc list-inside">
+                                                @foreach ($errors->all() as $error)
+                                                    <li>{{ $error }}</li>
+                                                @endforeach
+                                            </ul>
+                                        </div>
+                                    @endif
+                                    <div class="settings-section" data-aos="fade-up">
+                                        <h3>Informasi Pribadi</h3>
+                                        <form class="settings-form" action="/profile" method="POST">
+                                            @method('PUT')
+                                            @csrf
+                                            <div class="row g-3">
+                                                <div class="col-md-12">
+                                                    <label for="nama" class="form-label">Nama Lengkap</label>
+                                                    <input type="text" name="nama" class="form-control" id="nama"
+                                                        value="{{ Auth::user()->nama }}" required>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="email" class="form-label">Email</label>
+                                                    <input type="email" name="email" class="form-control" id="email"
+                                                        value="{{ Auth::user()->email }}" required>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="phone" class="form-label">Nomor Telepon</label>
+                                                    <input type="tel" name="telepon" class="form-control" pattern="[0-9]+"
+                                                        value="{{ Auth::user()->telepon }}" required>
+                                                </div>
+                                            </div>
+
+                                            <div class="form-buttons">
+                                                <button type="submit" class="btn-save">Simpan Perubahan</button>
+                                            </div>
+                                        </form>
+                                    </div>
+
+                                    <div class="settings-section" data-aos="fade-up" data-aos-delay="200">
+                                        <h3>Keamanan</h3>
+                                        <form class="settings-form" action="/profile/password" method="POST">
+                                            @csrf
+                                            @method('PUT')
+                                            <div class="row g-3">
+                                                <div class="col-md-12">
+                                                    <label for="currentPassword" class="form-label">Kata Sandi Saat Ini</label>
+                                                    <input type="password" name="current_password" class="form-control" id="currentPassword" required>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="newPassword" class="form-label">Kata Sandi Baru</label>
+                                                    <input type="password" name="password" class="form-control" id="newPassword" required>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="confirmPassword" class="form-label">Konfirmasi Kata Sandi</label>
+                                                    <input type="password" name="confirm_password" class="form-control" id="confirmPassword" required>
+                                                </div>
+                                            </div>
+
+                                            <div class="form-buttons">
+                                                <button type="submit" class="btn-save">Perbarui Kata Sandi</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane fade" id="orders">
+                                <div class="section-header" data-aos="fade-up">
+                                    <h2>Pesanan Saya</h2>
+                                    <div class="header-actions">
+                                        <div class="dropdown">
+                                            <button class="filter-btn" data-bs-toggle="dropdown">
+                                                <i class="bi bi-funnel"></i>
+                                                <span>Filter</span>
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li><a class="dropdown-item" href="#">Semua Pesanan</a></li>
+                                                <li><a class="dropdown-item" href="#">Belum Dibayar</a></li>
+                                                <li><a class="dropdown-item" href="#">Menunggu Verifikasi</a></li>
+                                                <li><a class="dropdown-item" href="#">Terverifikasi</a></li>
+                                                <li><a class="dropdown-item" href="#">Selesai</a></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="orders-grid">
+                                    @forelse ($pesanan_saya as $item)
+                                    <div class="order-card" data-aos="fade-up" data-aos-delay="100">
+                                        <div class="order-header">
+                                            <div class="order-id">
+                                                <span class="label">Order ID:</span>
+                                                <span class="value">#{{ $item->order_id }}</span>
+                                            </div>
+                                            <div class="order-date">{{ Carbon::parse($item->created_at)->translatedFormat('D, d M Y') }}</div>
+                                        </div>
+                                        <div class="order-content">
+                                            <div class="product-grid">
+                                                <img src="{{ trim(explode(',', $item->akomodasi->gambar)[0]) }}" alt="Product" loading="lazy">
+                                            </div>
+                                            <div class="order-info">
+                                                <div class="info-row">
+                                                    <span>Status</span>
+                                                    @if ($item->status == 'unpayed')
+                                                    <span class="status cancelled">Belum Dibayar</span>
+                                                    @elseif ($item->status == 'rejected')
+                                                    <span class="status cancelled">Pembayaran Ditolak</span>
+                                                    @elseif ($item->status == 'pending')
+                                                    <span class="status processing">Menunggu Verifikasi</span>
+                                                    @elseif ($item->status == 'verified')
+                                                    <span class="status delivered">Terverifikasi</span>
+                                                    @else
+                                                    <span class="status shipped">Selesai</span>
+                                                    @endif
+                                                </div>
+                                                <div class="info-row">
+                                                    <span>Tanggal Masuk</span>
+                                                    <span>{{ Carbon::parse($item->tanggal_masuk)->translatedFormat('D, d M Y') }}</span>
+                                                </div>
+                                                <div class="info-row">
+                                                    <span>Tanggal Keluar</span>
+                                                    <span>{{ Carbon::parse($item->tanggal_keluar)->translatedFormat('D, d M Y') }}</span>
+                                                </div>
+                                                <div class="info-row">
+                                                    <span>Total</span>
+                                                    <span class="price">{{ @currency($item->total_harga) }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="order-footer">
+                                            <button type="button" class="btn-track" data-bs-toggle="collapse"
+                                                data-bs-target="#tracking-{{$item->id}}" aria-expanded="false">Lihat Status</button>
+
+                                            @if ($item->status == 'verified' || $item->status == 'finished')
+                                                <button type="button" class="btn-details" data-bs-toggle="collapse" data-bs-target="#details{{ $item->id }}" aria-expanded="false">Cek Tiket</button>
+                                            @endif
+
+                                            {{-- [LOGIKA] Tombol Beri/Edit Ulasan muncul jika status finished --}}
+                                            @if ($item->status == 'finished')
+                                                @php
+                                                    // Cek apakah user ini sudah pernah review akomodasi ini
+                                                    $existingReview = Ulasan::where('user_id', Auth::id())
+                                                                        ->where('akomodasi_id', $item->akomodasi_id)
+                                                                        ->first();
+                                                @endphp
+                                                <button type="button" class="status processing" data-bs-toggle="modal" data-bs-target="#reviewModal{{ $item->id }}">
+                                                    <i class="bi bi-star"></i> {{ $existingReview ? 'Ubah Ulasan' : 'Beri Ulasan' }}
+                                                </button>
+                                            @endif
+                                        </div>
+
+                                        {{-- Timeline & Details Section (Tidak Diubah) --}}
+                                        <div class="collapse tracking-info" id="tracking-{{$item->id}}">
+                                            <div class="tracking-timeline">
+                                                <div class="timeline-item {{ $item->status == 'unpayed' || $item->status == 'rejected' ? 'active' : ($item->status == 'pending' || $item->status == 'verified' || $item->status == 'finished' ? 'completed' : '') }}">
+                                                    <div class="timeline-icon">
+                                                        @if ($item->status == 'pending' || $item->status == 'verified' || $item->status == 'finished')
+                                                        <i class="bi bi-check-circle-fill"></i>
+                                                        @elseif ($item->status == 'rejected')
+                                                        <i class="bi bi-x-circle"></i>
+                                                        @else
+                                                        <i class="bi bi-cash-stack"></i>
+                                                        @endif
+                                                    </div>
+                                                    <div class="timeline-content">
+                                                        <h5>{{ $item->status == 'pending' ? 'Sudah Dibayar' : ($item->status == 'rejected' ? 'Pembayaran Ditolak' : 'Belum Dibayar') }}</h5>
+                                                        @if ($item->status == 'rejected')
+                                                        <p>Bukti pembayaran tidak valid atau tidak terbaca. Silakan unggah ulang bukti transfer yang benar <a href="/payment/{{ $item->order_id }}">[di sini]</a>.</p>
+                                                        @elseif ($item->status != 'unpayed')
+                                                        <p>Pembayaran berhasil. Lihat bukti transfer <a href="{{ $item->bukti_pembayaran }}" target="_blank">[di sini]</a>.</p>
+                                                        @else
+                                                        <p>Menunggu pembayaran. Selesaikan transaksi Anda segera <a href="/payment/{{ $item->order_id }}">[di sini]</a>.</p>
+                                                        @endif
+                                                    </div>
+                                                </div>
+
+                                                @if ($item->status == 'pending' || $item->status == 'verified' || $item->status == 'finished')
+                                                <div class="timeline-item {{ $item->status == 'pending' ? 'active' : ($item->status == 'verified' || $item->status == 'finished' ? 'completed' : '') }}">
+                                                    <div class="timeline-icon">
+                                                        @if ($item->status == 'verified' || $item->status == 'finished')
+                                                        <i class="bi bi-check-circle-fill"></i>
+                                                        @else
+                                                        <i class="bi bi-hourglass-split"></i>
+                                                        @endif
+                                                    </div>
+
+                                                    <div class="timeline-content">
+                                                        <h5>{{ $item->status == 'verified' || $item->status == 'finished' ? 'Terverifikasi' : 'Menunggu Verifikasi' }}</h5>
+                                                        @if ($item->status == 'verified' || $item->status == 'finished')
+                                                        <p>Pesanan dikonfirmasi. Silakan lihat E-Tiket Anda pada menu Cek Tiket.</p>
+                                                        @else
+                                                        <p>Sedang diverifikasi admin. Jika dalam 24 jam status belum berubah, mohon hubungi kami <a href="https://wa.me/6282115551822" target="_blank">[di sini]</a>.</p>
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                                @endif
+
+                                                @if ($item->status == 'verified' || $item->status == 'finished')
+                                                <div class="timeline-item {{ $item->status == 'finished' ? 'completed' : ($item->status == 'verified' ? 'active' : '') }}">
+                                                    <div class="timeline-icon">
+                                                        @if ($item->status == 'finished')
+                                                        <i class="bi bi-check-circle-fill"></i>
+                                                        @else
+                                                        <i class="bi bi-moon-stars"></i>
+                                                        @endif
+                                                    </div>
+                                                    <div class="timeline-content">
+                                                        <h5>{{ $item->status == 'finished' ? 'Selesai' : 'Menunggu Check-in' }}</h5>
+                                                        @if ($item->status == 'finished')
+                                                        <p>Pesanan selesai. Terima kasih telah menginap.</p>
+                                                        @else
+                                                        <p>Siap untuk check-in pada {{ Carbon::parse($item->tanggal_masuk)->translatedFormat('D, d M Y') }}, pukul 14:00 - 21:00 WIB.</p>
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                                @endif
+                                            </div>
+                                        </div>
+
+                                        <div class="collapse order-details" id="details{{ $item->id }}">
+                                            <div class="details-content">
+                                                <div class="detail-section">
+                                                    <h5>E-Tiket #{{ $item->order_id }}</h5>
+                                                    <div class="info-grid">
+                                                        <div class="info-item">
+                                                            <span class="label">Nama Pemesan</span>
+                                                            <span class="value">{{ $item->nama_pemesan }}</span>
+                                                        </div>
+                                                        <div class="info-item">
+                                                            <span class="label">Alamat Email</span>
+                                                            <span class="value">{{ $item->email_pemesan }}</span>
+                                                        </div>
+                                                        <div class="info-item">
+                                                            <span class="label">Nomor Telepon</span>
+                                                            <span class="value">{{ $item->telepon_pemesan }}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="detail-section">
+                                                    <h5>Akomodasi</h5>
+                                                    <div class="order-items">
+                                                        <div class="item">
+                                                            <img src="{{ trim(explode(',', $item->akomodasi->gambar)[0]) }}" alt="Product"
+                                                                loading="lazy">
+                                                            <div class="item-info">
+                                                                <h6>{{ $item->akomodasi->tipe }}</h6>
+                                                                <div class="item-meta">
+                                                                    <span class="sku">{{ Carbon::parse($item->tanggal_masuk)->translatedFormat('D, d M Y') }}</span>
+                                                                    <span>-</span>
+                                                                    <span class="qty">{{ Carbon::parse($item->tanggal_keluar)->translatedFormat('D, d M Y') }}</span>
+                                                                </div>
+                                                            </div>
+                                                            <div class="item-price">
+                                                                <i class="bi bi-moon-stars"></i>
+                                                                <span class="mx-1"></span>
+                                                                {{ Carbon::parse($item->tanggal_masuk)->diffInDays(Carbon::parse($item->tanggal_keluar)) }} Malam
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="detail-section">
+                                                    <h5>Pembayaran</h5>
+                                                    <div class="price-breakdown">
+                                                        <div class="price-row total">
+                                                            <span>Total Harga</span>
+                                                            <span>{{ @currency($item->total_harga) }}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    @if ($item->status == 'finished')
+                                    <div class="modal fade" id="reviewModal{{ $item->id }}" tabindex="-1" aria-hidden="true">
+                                        <div class="modal-dialog modal-dialog-centered">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Ulasan - {{ $item->akomodasi->tipe }}</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+
+                                                <form action="/ulasan" method="POST" enctype="multipart/form-data">
+                                                    @csrf
+                                                    <input type="hidden" name="akomodasi_id" value="{{ $item->akomodasi_id }}">
+
+                                                    <div class="modal-body">
+                                                        {{-- Cek lagi jika sudah ada review untuk pre-fill data --}}
+                                                        @php
+                                                            $currentRating = $existingReview ? $existingReview->rating : 0;
+                                                            $currentText = $existingReview ? $existingReview->ulasan : '';
+                                                        @endphp
+
+                                                        <div class="mb-4">
+                                                            <label class="form-label d-block">Bagaimana pengalaman menginap Anda?</label>
+                                                            <div class="star-rating">
+                                                                <input type="radio" id="star5-{{$item->id}}" name="rating" value="5" {{ $currentRating == 5 ? 'checked' : '' }} /><label for="star5-{{$item->id}}" title="Sempurna"><i class="bi bi-star-fill"></i></label>
+                                                                <input type="radio" id="star4-{{$item->id}}" name="rating" value="4" {{ $currentRating == 4 ? 'checked' : '' }} /><label for="star4-{{$item->id}}" title="Sangat Bagus"><i class="bi bi-star-fill"></i></label>
+                                                                <input type="radio" id="star3-{{$item->id}}" name="rating" value="3" {{ $currentRating == 3 ? 'checked' : '' }} /><label for="star3-{{$item->id}}" title="Bagus"><i class="bi bi-star-fill"></i></label>
+                                                                <input type="radio" id="star2-{{$item->id}}" name="rating" value="2" {{ $currentRating == 2 ? 'checked' : '' }} /><label for="star2-{{$item->id}}" title="Kurang"><i class="bi bi-star-fill"></i></label>
+                                                                <input type="radio" id="star1-{{$item->id}}" name="rating" value="1" {{ $currentRating == 1 ? 'checked' : '' }} /><label for="star1-{{$item->id}}" title="Buruk"><i class="bi bi-star-fill"></i></label>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="mb-3">
+                                                            <label for="reviewText{{$item->id}}" class="form-label">Ceritakan pengalaman Anda</label>
+                                                            <textarea class="form-control" id="reviewText{{$item->id}}" name="ulasan" rows="3" placeholder="Kamar bersih, pelayanan ramah, lokasi strategis..." required>{{ $currentText }}</textarea>
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn status cancelled" data-bs-dismiss="modal">Batal</button>
+                                                        <button type="submit" class="btn status delivered">Kirim Ulasan</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @endif
+                                    @empty
+                                    <p class="text-center">Belum ada pesanan.</p>
+                                    @endforelse
+                                </div>
+                            </div>
+
+                            <div class="tab-pane fade" id="reviews">
+                                <div class="section-header" data-aos="fade-up">
+                                    <h2>Ulasan Saya</h2>
+                                    <div class="header-actions">
+                                        <div class="dropdown">
+                                            <button class="filter-btn" data-bs-toggle="dropdown">
+                                                <i class="bi bi-funnel"></i>
+                                                <span>Sort by: Recent</span>
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li><a class="dropdown-item" href="#">Recent</a></li>
+                                                <li><a class="dropdown-item" href="#">Highest Rating</a></li>
+                                                <li><a class="dropdown-item" href="#">Lowest Rating</a></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="reviews-grid">
+                                    @forelse($ulasan_saya as $item)
+                                    <div class="review-card" data-aos="fade-up" data-aos-delay="100">
+                                        <div class="review-header">
+                                            <img src="{{ trim(explode(',', $item->akomodasi->gambar)[0]) }}" alt="Product" class="product-image" loading="lazy">
+                                            <div class="review-meta">
+                                                <h4>{{ $item->akomodasi->tipe }}</h4>
+                                                <div class="rating">
+                                                    @for ($i = 0; $i < $item->rating; $i++)
+                                                    <i class="bi bi-star-fill text-warning"></i>
+                                                    @endfor
+                                                    <span>({{ $item->rating }}.0)</span>
+                                                </div>
+                                                <div class="review-date">Ulasan dibuat pada {{ Carbon::parse($item->created_at)->translatedFormat('D, d M Y') }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="review-content">
+                                            <p>{{ $item->ulasan }}</p>
+                                        </div>
+                                        <div class="review-footer">
+                                            {{-- Trigger Modal Edit (Menggunakan Modal yang sama strukturnya dengan Create) --}}
+                                            <button type="button" class="btn-edit" data-bs-toggle="modal" data-bs-target="#editReviewTabModal{{ $item->id }}">Edit Ulasan</button>
+
+                                            {{-- Form Delete --}}
+                                            <form action="/ulasan/{{ $item->id }}" method="POST" onsubmit="return confirm('Yakin ingin menghapus ulasan ini?');" style="display:inline-block;">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="btn-delete">Hapus Ulasan</button>
+                                            </form>
+                                        </div>
+                                    </div>
+
+                                    <div class="modal fade" id="editReviewTabModal{{ $item->id }}" tabindex="-1" aria-hidden="true">
+                                        <div class="modal-dialog modal-dialog-centered">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Ubah Ulasan - {{ $item->akomodasi->tipe }}</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+
+                                                {{-- Form POST ke /ulasan (UpdateOrCreate logic) --}}
+                                                <form action="/ulasan" method="POST">
+                                                    @csrf
+                                                    <input type="hidden" name="akomodasi_id" value="{{ $item->akomodasi_id }}">
+
+                                                    <div class="modal-body">
+                                                        <div class="mb-4 text-center">
+                                                            <label class="form-label d-block">Ubah penilaian Anda?</label>
+                                                            <div class="star-rating">
+                                                                <input type="radio" id="e-star5-{{$item->id}}" name="rating" value="5" {{ $item->rating == 5 ? 'checked' : '' }} /><label for="e-star5-{{$item->id}}"><i class="bi bi-star-fill"></i></label>
+                                                                <input type="radio" id="e-star4-{{$item->id}}" name="rating" value="4" {{ $item->rating == 4 ? 'checked' : '' }} /><label for="e-star4-{{$item->id}}"><i class="bi bi-star-fill"></i></label>
+                                                                <input type="radio" id="e-star3-{{$item->id}}" name="rating" value="3" {{ $item->rating == 3 ? 'checked' : '' }} /><label for="e-star3-{{$item->id}}"><i class="bi bi-star-fill"></i></label>
+                                                                <input type="radio" id="e-star2-{{$item->id}}" name="rating" value="2" {{ $item->rating == 2 ? 'checked' : '' }} /><label for="e-star2-{{$item->id}}"><i class="bi bi-star-fill"></i></label>
+                                                                <input type="radio" id="e-star1-{{$item->id}}" name="rating" value="1" {{ $item->rating == 1 ? 'checked' : '' }} /><label for="e-star1-{{$item->id}}"><i class="bi bi-star-fill"></i></label>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Ceritakan pengalaman Anda</label>
+                                                            <textarea class="form-control" name="ulasan" rows="3" required>{{ $item->ulasan }}</textarea>
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn status cancelled" data-bs-dismiss="modal">Batal</button>
+                                                        <button type="submit" class="btn status delivered">Simpan Perubahan</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @empty
+                                    <p class="text-center">Belum ada ulasan.</p>
+                                    @endforelse
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </section>
+
+@endsection
